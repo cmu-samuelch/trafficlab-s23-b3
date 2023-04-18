@@ -2,6 +2,7 @@ int f_lane0 = A6; // pins in front of lane
 int f_lane1 = A3;
 int f_lane2 = A2;
 int f_lane3 = A1;
+int exit_lane = A4;
 int f_lane0Val;
 int f_lane1Val;
 int f_lane2Val;
@@ -51,12 +52,16 @@ void loop() {
   for(int i =0; 1<4 ; i++){
     if(laneVal[i] >= threshold){
       car_present= true;
-      carCount ++;
       free_lanes[i] = 1
-      
     }
+   if(lane(i) == green){
+        if(lane(i) == false){
+          carCount++;
+      }
+     }
+   }
 
-  }
+  
   
   
 
