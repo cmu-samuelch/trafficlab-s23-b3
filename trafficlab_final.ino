@@ -79,8 +79,8 @@ void record_lane_data(bool *sensor_data) {
 }
 
 void update_counts(bool *sensor_data) {
-  if (!sensor_data[current_lane] && occupied_lanes[current_lane])
-    car_count[current_lane] = car_count[current_lane] + 1;
+  if (!sensor_data[current_green] && occupied_lanes[current_green])
+    car_count[current_green] = car_count[current_green] + 1;
 }
 
 void load_lane_data(bool *sensor_data) {
