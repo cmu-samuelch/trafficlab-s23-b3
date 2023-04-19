@@ -13,7 +13,6 @@
 /* declare the NeoPixel Pixel object */
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LEDPin, NP_type);
 
-
 /* typedef'ing the lane queue structure.
  * I will store the lane queue as a circular singly-linked list of lanes,
  * where `queue` will always point to the last lane in the queue (NULL if
@@ -27,8 +26,13 @@ typedef struct ll_ele {
   struct ll_ele *next;
 } lane_t;
 
-int car_count[NUMLANES];
-bool occupied_lanes[NUMLANES];
+int car_count[NUMLANES] = {0,0,0,0};
+bool occupied_lanes[NUMLANES] = {false,false,false,false};
+int f_lanes[NUMLANES] = {A6,A3,A2,A1};
+int exit_lane = A4;
+
+int threshold = 50;
+
 int current_green;
 lane_t *queue;
 unsigned long timer;
@@ -41,15 +45,42 @@ void setup() {
   // put your setup code here, to run once:
   queue = NULL;
   current_green = -1;
-  for (size_t i = 0; i < NUMLANES; i++) occupied_lanes[i] = false;
+  for (size_t i = 0; i < NUMLANES; i++) {
+    occupied_lanes[i] = false;
+    car_count[i] = 0;
+  }
 }
 
 void loop() {
   // put your main code here, to run repeatedly
   bool sensor_data[NUMLANES];
-  // load sensor data into sensor_data
+  record_lane_data(sensor_data);
+
+  update_counts(sensor_data);
+
   load_lane_data(sensor_data);
-  set_green(sensor_data);
+  if (set_green(sensor_data)) return;
+
+  /* incorporate Dalton's code to check whether to send red to current lane.
+   */
+
+}
+
+void record_lane_data(bool *sensor_data) {
+  int f_lane_vals[NUMLANES];
+  /* this loop records the data into an array containing values
+   * and records which lanes have cars in occupied_lanes
+   */
+  for (size_t i = 0; i < NUMLANES; i++) {
+    f_lane_vals[i] = map(analogRead(f_lanes[i]), 0, 1023, 0, 100);
+    /* sensor_data[i] is set to whether there is a car over that sensor) */
+    sensor_data[i] = (f_lane_vals[i] > threshold);
+  }
+}
+
+void update_counts(bool *sensor_data) {
+  if (!sensor_data[current_lane] && occupied_lanes[current_lane])
+    car_count[current_lane] = car_count[current_lane] + 1;
 }
 
 void load_lane_data(bool *sensor_data) {
@@ -69,14 +100,19 @@ void load_lane_data(bool *sensor_data) {
     }
 }
 
-void set_green(bool *sensor_data) {
-  if (current_green == -1) { // if there is no current lane, set that lane.
+bool set_green(bool *sensor_data) {
+  if (current_green == -1) { // if there is no current lane, set that lane
     // dequeue top of queue; set current_green to that lane
     lane_t *lane = queue->next;
     current_green = lane->lane;
-    queue->next = lane->next;
-    free(lane);
+    if (queue != lane) // there is a new head for tail to link to
+      queue->next = lane->next;
+    else // head and tail are identical and we have dequeued that lane
+      queue = NULL;
+    free(lane); // in any case, free lane so we don't memleak :D
 
     pixels.setPixelColor(current_green, pixels.Color(0, 150, 0));
+    return true;
   }
+  return false;
 }
