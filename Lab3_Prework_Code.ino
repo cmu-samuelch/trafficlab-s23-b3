@@ -3,6 +3,10 @@
 // The algorithms needed to control the lights using sensor data have not been added.
 unsigned long Timer;
 unsigned long Sensor_off;
+int Lane0_car_count = 0;
+int Lane1_car_count = 0;
+int Lane2_car_count = 0;
+int Lane3_car_count = 0;
 
 //The Adafruit NeoPixel library for controlling the LEDs is added
 #include <Adafruit_NeoPixel.h> 
@@ -61,11 +65,11 @@ void loop() {
  photoSensor4Val= map(photoSensor4Val, 0, 1023, 0, 100); //Maps the value read from the Photoresistor sensor that ranges from 0 to 1023 to a corresponding value from 0 to 100
  Serial.print("Photo 4: ");Serial.println(photoSensor4Val); //Prints the photoresistor value to the serial monitor
   
- photoSensor2Val = analogRead(photoPin2); // Reads the value of the Photoresistor Sensor 1
+ photoSensor2Val = analogRead(photoPin2); // Reads the value of the Photoresistor Sensor 3
  photoSensor2Val= map(photoSensor2Val, 0, 1023, 0, 100); //Maps the value read from the Photoresistor sensor that ranges from 0 to 1023 to a corresponding value from 0 to 100
  Serial.print("Photo 2: ");Serial.println(photoSensor7Val);
 
- photoSensor3Val = analogRead(photoPin3); // Reads the value of the Photoresistor Sensor 1
+ photoSensor3Val = analogRead(photoPin3); // Reads the value of the Photoresistor Sensor 4
  photoSensor3Val= map(photoSensor3Val, 0, 1023, 0, 100); //Maps the value read from the Photoresistor sensor that ranges from 0 to 1023 to a corresponding value from 0 to 100
  Serial.print("Photo 3: ");Serial.println(photoSensor7Val);
  // if (photoSensor7Val <= sensorThreshold ){
@@ -112,6 +116,7 @@ void loop() {
     }  
      
     if (photoSensor7Val <= sensorThreshold){
+      Lane0_car_count = Lane0_car_count + 1
       Sensor_off = 0;
       Sensor_off = millis();
       if (Sensor_off >= 3000) {
@@ -126,6 +131,7 @@ void loop() {
       }       
     }
     if (photoSensor4Val <= sensorThreshold){
+      Lane1_car_count = Lane1_car_count + 1
       Sensor_off = 0;
       Sensor_off = millis();
       if (Sensor_off >= 3000) {
@@ -140,6 +146,7 @@ void loop() {
       }  
     }     
     if (photoSensor2Val <= sensorThreshold){
+      Lane2_car_count = Lane2_car_count + 1
       Sensor_off = 0;
       Sensor_off = millis();
       if (Sensor_off >= 3000) {
@@ -154,6 +161,7 @@ void loop() {
       }  
     }     
     if (photoSensor3Val <= sensorThreshold){
+      Lane3_car_count = Lane3_car_count + 1
       Sensor_off = 0;
       Sensor_off = millis();
       if (Sensor_off >= 3000) {
@@ -169,8 +177,4 @@ void loop() {
     }     
   }
 }
-
-
-
-
 
