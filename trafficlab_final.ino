@@ -35,7 +35,10 @@ int threshold = 50;
 
 int current_green;
 lane_t *queue;
-unsigned long timer;
+unsigned long lane_green_time;
+
+unsigned long max_green_time = 30000; // max green time: 30s
+unsigned long lane_empty_threshold = 1500; // time to treat lane as empty: 1.5s
 
 
 void setup() {
@@ -49,6 +52,8 @@ void setup() {
     occupied_lanes[i] = false;
     car_count[i] = 0;
   }
+
+  set_all_red();
 }
 
 void loop() {
@@ -61,9 +66,12 @@ void loop() {
   load_lane_data(sensor_data);
   if (set_green(sensor_data)) return;
 
-  /* incorporate Dalton's code to check whether to send red to current lane.
-   */
+  send_red(sensor_data);
+}
 
+void set_all_red(void) {
+  for (size_t i = 0; i < NUMLANES; i++)
+    pixels.setPixelColor(i, pixels.Color(150, 0, 0));
 }
 
 void record_lane_data(bool *sensor_data) {
@@ -79,6 +87,14 @@ void record_lane_data(bool *sensor_data) {
 }
 
 void update_counts(bool *sensor_data) {
+  /* if a car is currently in the current lane, reset the timer since last car
+   * detected in open lane
+   */
+  if (sensor_data[current_green])
+    last_car_time = millis();
+  /* if a car was in this lane at last check but is no longer in the lane,
+   * increment the current lane's car count by 1.
+   */
   if (!sensor_data[current_green] && occupied_lanes[current_green])
     car_count[current_green] = car_count[current_green] + 1;
 }
@@ -112,7 +128,33 @@ bool set_green(bool *sensor_data) {
     free(lane); // in any case, free lane so we don't memleak :D
 
     pixels.setPixelColor(current_green, pixels.Color(0, 150, 0));
+    lane_green_time = millis();
     return true;
   }
   return false;
+}
+
+/* header comment */
+void set_red(void) {
+  unsigned long current_time = millis();
+
+  /* if we exceed the max green time on the current lane, cycle the light
+   * to red.
+   *
+   * otherwise, check if the currently-green lane is empty.
+   * We accomplish this by checking if the time between now and the most recent
+   * car to pass through exceeds a certain time, say, 3 seconds.
+   * if we find that lane has been empty for `lane_empty_threshold` ms, cycle
+   * the light to red.
+   */
+  if (current_time - lane_green_time >= max_green_time
+   || current_time - last_car_time >= lane_empty_threshold) {
+    pixels.setPixelColor(i,  pixels.Color(150, 150, 0)); // Yellow
+    pixels.show(); delay(5000);
+
+    pixels.setPixelColor(i,  pixels.Color(150, 0, 0)); // Red
+    pixels.show(); delay(1000);
+    
+    current_green = -1;
+  }
 }
