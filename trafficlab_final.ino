@@ -28,17 +28,20 @@ typedef struct ll_ele {
 
 int car_count[NUMLANES] = {0,0,0,0};
 bool occupied_lanes[NUMLANES] = {false,false,false,false};
-int f_lanes[NUMLANES] = {A6,A3,A2,A1};
+int f_lanes[NUMLANES] = {A5,A2,A1,A0};
 int exit_lane = A4;
 
-int threshold = 50;
+int threshold[NUMLANES] = {90,50,50,50};
 
 int current_green;
 lane_t *queue;
 unsigned long lane_green_time;
+unsigned long last_car_time;
 
-unsigned long max_green_time = 30000; // max green time: 30s
-unsigned long lane_empty_threshold = 1500; // time to treat lane as empty: 1.5s
+const unsigned long yellow_time = 1500;
+const unsigned long red_time = 1000;
+const unsigned long max_green_time = 30000; // max green time: 30s
+const unsigned long lane_empty_threshold = 1000; // time to treat lane as empty: 1.0s
 
 
 void setup() {
@@ -48,7 +51,8 @@ void setup() {
   // put your setup code here, to run once:
   queue = NULL;
   current_green = -1;
-  for (size_t i = 0; i < NUMLANES; i++) {
+  last_car_time = 0;  
+  for (int i = 0; i < NUMLANES; i++) {
     occupied_lanes[i] = false;
     car_count[i] = 0;
   }
@@ -66,12 +70,18 @@ void loop() {
   load_lane_data(sensor_data);
   if (set_green(sensor_data)) return;
 
-  send_red(sensor_data);
+  if (queue != NULL) set_red();
 }
 
 void set_all_red(void) {
-  for (size_t i = 0; i < NUMLANES; i++)
+  for (int i = 0; i < NUMLANES; i++)
+    pixels.setPixelColor(i, pixels.Color(0,0,200));
+  pixels.show();
+  delay(1000);
+  for (int i = 0; i < NUMLANES; i++)
     pixels.setPixelColor(i, pixels.Color(150, 0, 0));
+  pixels.show();
+  Serial.println("initialized. set to red.");
 }
 
 void record_lane_data(bool *sensor_data) {
@@ -79,10 +89,11 @@ void record_lane_data(bool *sensor_data) {
   /* this loop records the data into an array containing values
    * and records which lanes have cars in occupied_lanes
    */
-  for (size_t i = 0; i < NUMLANES; i++) {
+  for (int i = 0; i < NUMLANES; i++) {
     f_lane_vals[i] = map(analogRead(f_lanes[i]), 0, 1023, 0, 100);
     /* sensor_data[i] is set to whether there is a car over that sensor) */
-    sensor_data[i] = (f_lane_vals[i] > threshold);
+    sensor_data[i] = (f_lane_vals[i] > threshold[i]);
+    Serial.print("lane "); Serial.print(i); Serial.println(f_lane_vals[i]);
   }
 }
 
@@ -100,7 +111,7 @@ void update_counts(bool *sensor_data) {
 }
 
 void load_lane_data(bool *sensor_data) {
-  for (size_t i = 0; i < NUMLANES; i++)
+  for (int i = 0; i < NUMLANES; i++) {
     if (!occupied_lanes[i] && sensor_data[i] && i != current_green) {
       /* add lane `i` to the queue. see line 14. */
       lane_t *next = queue;
@@ -114,10 +125,13 @@ void load_lane_data(bool *sensor_data) {
       }
       queue = new_lane; // new_lane becomes the queue's new tail
     }
+    occupied_lanes[i] = sensor_data[i];
+  }
 }
 
 bool set_green(bool *sensor_data) {
-  if (current_green == -1) { // if there is no current lane, set that lane
+  // if there is no current lane, set that lane
+  if (current_green == -1 && queue != NULL) {
     // dequeue top of queue; set current_green to that lane
     lane_t *lane = queue->next;
     current_green = lane->lane;
@@ -128,6 +142,7 @@ bool set_green(bool *sensor_data) {
     free(lane); // in any case, free lane so we don't memleak :D
 
     pixels.setPixelColor(current_green, pixels.Color(0, 150, 0));
+    pixels.show();
     lane_green_time = millis();
     return true;
   }
@@ -147,13 +162,16 @@ void set_red(void) {
    * if we find that lane has been empty for `lane_empty_threshold` ms, cycle
    * the light to red.
    */
+  Serial.print("current lane "); Serial.println(current_green);
+  Serial.print("time since car"); Serial.println(current_time - last_car_time);
+  Serial.print("time since green"); Serial.println(current_time - lane_green_time);
   if (current_time - lane_green_time >= max_green_time
    || current_time - last_car_time >= lane_empty_threshold) {
-    pixels.setPixelColor(i,  pixels.Color(150, 150, 0)); // Yellow
-    pixels.show(); delay(5000);
+    pixels.setPixelColor(current_green,  pixels.Color(150, 150, 0)); // Yellow
+    pixels.show(); delay(yellow_time);
 
-    pixels.setPixelColor(i,  pixels.Color(150, 0, 0)); // Red
-    pixels.show(); delay(1000);
+    pixels.setPixelColor(current_green,  pixels.Color(150, 0, 0)); // Red
+    pixels.show(); delay(red_time);
     
     current_green = -1;
   }
